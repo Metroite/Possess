@@ -83,7 +83,6 @@ navigator.mediaDevices.getUserMedia({ audio: true, video: false })
 });
 
 
-let reverb = createReverb();
 async function createReverb() {
     let convolver = audioContext.createConvolver();
 
@@ -97,7 +96,8 @@ async function createReverb() {
 
 
 
-function start_microphone(stream){
+async function start_microphone(stream){
+  let reverb = await createReverb();
   gain_node = audioContext.createGain();
   microphone_stream = audioContext.createMediaStreamSource(stream);
 
