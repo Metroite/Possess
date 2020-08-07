@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="">
     <!--[if lt IE 9]>
       <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
-    <![endif]-->
+      <![endif]-->
   </head>
 
   <body>
@@ -21,7 +21,7 @@
     <input id="preset" type="range" min="-1" max="9" step="1" value="4"/>
     <pre></pre>
   </body>
-<script>
+  <script>
 
 
 const pre = document.querySelector('pre');
@@ -114,8 +114,9 @@ function disconnectNodes() {
 
 // --- enable volume and reverb control for output speakers
 document.getElementById('preset').addEventListener('change', async function() {
-
+    audioContext.resume()
     let curr_preset = this.value;
+
     disconnectNodes();
     reverb_preset = curr_preset;
     if (curr_preset == -1) {
@@ -132,12 +133,12 @@ document.getElementById('preset').addEventListener('change', async function() {
 });
 
 document.getElementById('volume').addEventListener('change', async function() {
-
+    audioContext.resume()
     let curr_volume = this.value;
+
     gain_node.gain.value = curr_volume;
 
     console.log("curr_volume ", curr_volume);
 });
-
-</script>
+  </script>
 </html>
