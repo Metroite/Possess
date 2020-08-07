@@ -17,8 +17,8 @@
     <h1>Microphone Gain and Reverb</h1>
     <p>Volume</p>
     <input id="volume" type="range" min="0" max="1" step="0.1" value="0.5"/>
-    <p>Reverb</p>
-    <input id="reverb" type="range" min="0" max="9" step="1" value="4"/>
+    <p>Reverb Preset</p>
+    <input id="preset" type="range" min="-1" max="9" step="1" value="4"/>
     <pre></pre>
   </body>
 <script>
@@ -28,11 +28,11 @@ const pre = document.querySelector('pre');
 const myScript = document.querySelector('script');
 pre.innerHTML = myScript.innerHTML;
 
-const BUFF_SIZE = 16384;
 let microphone_stream = null,
     gain_node = null,
     reverb_node = null,
-    audioContext = null;
+    audioContext = null,
+    reverb_preset = 4;
 
 try {
   audioContext = new AudioContext();
@@ -75,14 +75,14 @@ if (navigator.mediaDevices.getUserMedia === undefined) {
 navigator.mediaDevices.getUserMedia({ audio: true, video: false })
 
 .then(function(stream) {
-  start_microphone(stream);
+  startMicrophone(stream);
 })
 .catch(function(err) {
   console.log(err.name + ": " + err.message);
 });
 
 // get reverb preset and create path
-async function changeReverb(preset) {
+async function changePreset(preset) {
   let convolver = audioContext.createConvolver();
 
   // load impulse response from file
@@ -94,22 +94,8 @@ async function changeReverb(preset) {
   return convolver
 }
 
-
-//async function createReverb() {
-//    let convolver = audioContext.createConvolver();
-//
-//    // load impulse response from file
-//    let response     = await fetch("media/impulse-response/4.wav");
-//    let arraybuffer  = await response.arrayBuffer();
-//    convolver.buffer = await audioContext.decodeAudioData(arraybuffer);
-//
-//    return convolver;
-//}
-
-
-
-async function start_microphone(stream){
-  let reverb_node = await changeReverb(4);
+async function startMicrophone(stream){
+  reverb_node = await changePreset(reverb_preset);
   gain_node = audioContext.createGain();
   microphone_stream = audioContext.createMediaStreamSource(stream);
 
@@ -117,25 +103,41 @@ async function start_microphone(stream){
   microphone_stream.connect(reverb_node);
   reverb_node.connect(gain_node);
   gain_node.connect(audioContext.destination);
-
-
-
-  // --- enable volume and reverb control for output speakers
-  document.getElementById('reverb').addEventListener('change', function() {
-
-      var curr_reverb = this.value;
-      changeReverb(curr_reverb);
-
-      console.log("curr_reverb ", curr_reverb);
-  });
-  document.getElementById('volume').addEventListener('change', function() {
-
-      var curr_volume = this.value;
-      gain_node.gain.value = curr_volume;
-
-      console.log("curr_volume ", curr_volume);
-  });
 }
+
+function disconnectNodes() {
+  microphone_stream.disconnect();
+  reverb_node.disconnect();
+  gain_node.disconnect();
+}
+
+
+// --- enable volume and reverb control for output speakers
+document.getElementById('preset').addEventListener('change', async function() {
+
+    let curr_preset = this.value;
+    disconnectNodes();
+    reverb_preset = curr_preset;
+    if (curr_preset == -1) {
+      microphone_stream.connect(gain_node);
+      gain_node.connect(audioContext.destination);
+    } else {
+      reverb_node = await changePreset(curr_preset);
+      microphone_stream.connect(reverb_node);
+      reverb_node.connect(gain_node);
+      gain_node.connect(audioContext.destination);
+    }
+
+    console.log("curr_preset ", curr_preset);
+});
+
+document.getElementById('volume').addEventListener('change', async function() {
+
+    let curr_volume = this.value;
+    gain_node.gain.value = curr_volume;
+
+    console.log("curr_volume ", curr_volume);
+});
 
 </script>
 </html>
