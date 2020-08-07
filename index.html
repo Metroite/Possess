@@ -18,7 +18,7 @@
     <p>Volume</p>
     <input id="volume" type="range" min="0" max="1" step="0.1" value="0.5"/>
     <p>Reverb</p>
-    <input id="reverb" type="range" min="0" max="1" step="0.1" value="0.5"/>
+    <input id="reverb" type="range" min="0" max="9" step="1" value="4"/>
     <pre></pre>
   </body>
 <script>
@@ -31,7 +31,7 @@ pre.innerHTML = myScript.innerHTML;
 const BUFF_SIZE = 16384;
 let microphone_stream = null,
     gain_node = null,
-    reverb_node = null;
+    reverb_node = null,
     audioContext = null;
 
 try {
@@ -77,17 +77,25 @@ navigator.mediaDevices.getUserMedia({ audio: true, video: false })
 .then(function(stream) {
   start_microphone(stream);
 })
-
 .catch(function(err) {
   console.log(err.name + ": " + err.message);
 });
+
+// get reverb preset and create path - Metroite
+async function changeReverb(preset) {
+  let reverb_path = ("media/impulse-response/" + preset + ".wav")
+  // load impulse response from file
+  let response     = await fetch(reverb_path);
+  let arraybuffer  = await response.arrayBuffer();
+  convolver.buffer = await audioContext.decodeAudioData(arraybuffer);
+}
 
 
 async function createReverb() {
     let convolver = audioContext.createConvolver();
 
     // load impulse response from file
-    let response     = await fetch("impulse-response.wav");
+    let response     = await fetch("media/impulse-response/4.wav");
     let arraybuffer  = await response.arrayBuffer();
     convolver.buffer = await audioContext.decodeAudioData(arraybuffer);
 
@@ -97,13 +105,13 @@ async function createReverb() {
 
 
 async function start_microphone(stream){
-  let reverb = await createReverb();
+  let reverb_node = await createReverb();
   gain_node = audioContext.createGain();
   microphone_stream = audioContext.createMediaStreamSource(stream);
 
   // microphone_stream -> reverb -> gain -> destination
-  microphone_stream.connect(reverb);
-  reverb.connect(gain_node);
+  microphone_stream.connect(reverb_node);
+  reverb_node.connect(gain_node);
   gain_node.connect(audioContext.destination);
 
 
@@ -112,7 +120,7 @@ async function start_microphone(stream){
   document.getElementById('reverb').addEventListener('change', function() {
 
       var curr_reverb = this.value;
-      reverb_node.convolve.value = curr_reverb;
+      changeReverb(curr_reverb);
 
       console.log("curr_reverb ", curr_reverb);
   });
