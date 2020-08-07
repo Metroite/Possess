@@ -81,31 +81,35 @@ navigator.mediaDevices.getUserMedia({ audio: true, video: false })
   console.log(err.name + ": " + err.message);
 });
 
-// get reverb preset and create path - Metroite
+// get reverb preset and create path
 async function changeReverb(preset) {
-  let reverb_path = ("media/impulse-response/" + preset + ".wav")
+  let convolver = audioContext.createConvolver();
+
   // load impulse response from file
+  let reverb_path = ("media/impulse-response/" + preset + ".wav")
   let response     = await fetch(reverb_path);
   let arraybuffer  = await response.arrayBuffer();
   convolver.buffer = await audioContext.decodeAudioData(arraybuffer);
+
+  return convolver
 }
 
 
-async function createReverb() {
-    let convolver = audioContext.createConvolver();
-
-    // load impulse response from file
-    let response     = await fetch("media/impulse-response/4.wav");
-    let arraybuffer  = await response.arrayBuffer();
-    convolver.buffer = await audioContext.decodeAudioData(arraybuffer);
-
-    return convolver;
-}
+//async function createReverb() {
+//    let convolver = audioContext.createConvolver();
+//
+//    // load impulse response from file
+//    let response     = await fetch("media/impulse-response/4.wav");
+//    let arraybuffer  = await response.arrayBuffer();
+//    convolver.buffer = await audioContext.decodeAudioData(arraybuffer);
+//
+//    return convolver;
+//}
 
 
 
 async function start_microphone(stream){
-  let reverb_node = await createReverb();
+  let reverb_node = await changeReverb(4);
   gain_node = audioContext.createGain();
   microphone_stream = audioContext.createMediaStreamSource(stream);
 
