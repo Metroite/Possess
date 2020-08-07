@@ -1,129 +1,129 @@
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
-<title>capture microphone audio into buffer</title>
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width">
 
-<script type="text/javascript">
+    <title>Web Audio API Test</title>
 
+    <link rel="stylesheet" href="">
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
 
-  var webaudio_tooling_obj = function () {
-
-    var audioContext = new AudioContext();
-
-    console.log("audio is starting up ...");
-
-    var BUFF_SIZE = 16384;
-
-    var audioInput = null,
-        microphone_stream = null,
-        gain_node = null,
-        script_processor_node = null,
-        script_processor_fft_node = null,
-        analyserNode = null;
-
-    if (!navigator.getUserMedia)
-            navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia ||
-                          navigator.mozGetUserMedia || navigator.msGetUserMedia;
-
-    if (navigator.getUserMedia){
-
-        navigator.getUserMedia({audio:true},
-          function(stream) {
-              start_microphone(stream);
-          },
-          function(e) {
-            alert('Error capturing audio.');
-          }
-        );
-
-    } else { alert('getUserMedia not supported in this browser.'); }
-
-    // ---
-
-    function show_some_data(given_typed_array, num_row_to_display, label) {
-
-        var size_buffer = given_typed_array.length;
-        var index = 0;
-        var max_index = num_row_to_display;
-
-        console.log("__________ " + label);
-
-        for (; index < max_index && index < size_buffer; index += 1) {
-
-            console.log(given_typed_array[index]);
-        }
-    }
-
-    function process_microphone_buffer(event) { // invoked by event loop
-
-        var i, N, inp, microphone_output_buffer;
-
-        microphone_output_buffer = event.inputBuffer.getChannelData(0); // just mono - 1 channel for now
-
-        // microphone_output_buffer  <-- this buffer contains current gulp of data size BUFF_SIZE
-
-        show_some_data(microphone_output_buffer, 5, "from getChannelData");
-    }
-
-    function start_microphone(stream){
-
-      gain_node = audioContext.createGain();
-      gain_node.connect( audioContext.destination );
-
-      microphone_stream = audioContext.createMediaStreamSource(stream);
-      microphone_stream.connect(gain_node);
-
-      script_processor_node = audioContext.createScriptProcessor(BUFF_SIZE, 1, 1);
-      script_processor_node.onaudioprocess = process_microphone_buffer;
-
-      microphone_stream.connect(script_processor_node);
-
-      // --- enable volume control for output speakers
-
-      document.getElementById('volume').addEventListener('change', function() {
-
-          var curr_volume = this.value;
-          gain_node.gain.value = curr_volume;
-
-          console.log("curr_volume ", curr_volume);
-      });
-
-      // --- setup FFT
-
-      script_processor_fft_node = audioContext.createScriptProcessor(2048, 1, 1);
-      script_processor_fft_node.connect(gain_node);
-
-      analyserNode = audioContext.createAnalyser();
-      analyserNode.smoothingTimeConstant = 0;
-      analyserNode.fftSize = 2048;
-
-      microphone_stream.connect(analyserNode);
-
-      analyserNode.connect(script_processor_fft_node);
-
-      script_processor_fft_node.onaudioprocess = function() {
-
-        // get the average for the first channel
-        var array = new Uint8Array(analyserNode.frequencyBinCount);
-        analyserNode.getByteFrequencyData(array);
-
-        // draw the spectrogram
-        if (microphone_stream.playbackState == microphone_stream.PLAYING_STATE) {
-
-            show_some_data(array, 5, "from fft");
-        }
-      };
-    }
-
-  }(); //  webaudio_tooling_obj = function()
-
-
-
-</script>
-
-</head>
-<body>
-
+  <body>
+    <h1>Microphone Gain and Reverb</h1>
     <p>Volume</p>
     <input id="volume" type="range" min="0" max="1" step="0.1" value="0.5"/>
+    <p>Reverb</p>
+    <input id="reverb" type="range" min="0" max="1" step="0.1" value="0.5"/>
+    <pre></pre>
+  </body>
+<script>
 
-</body>
+
+const pre = document.querySelector('pre');
+const myScript = document.querySelector('script');
+pre.innerHTML = myScript.innerHTML;
+
+const BUFF_SIZE = 16384;
+let microphone_stream = null,
+    gain_node = null,
+    reverb_node = null;
+    audioContext = null;
+
+try {
+  audioContext = new AudioContext();
+  console.log("audio is starting up ...");
+}
+catch (err) {
+   alert("err.message");
+}
+
+
+// Older browsers might not implement mediaDevices at all, so we set an empty object first
+if (navigator.mediaDevices === undefined) {
+  navigator.mediaDevices = {};
+}
+
+// Some browsers partially implement mediaDevices. We can't just assign an object
+// with getUserMedia as it would overwrite existing properties.
+// Here, we will just add the getUserMedia property if it's missing.
+if (navigator.mediaDevices.getUserMedia === undefined) {
+  navigator.mediaDevices.getUserMedia = function(constraints) {
+
+    // First get ahold of the legacy getUserMedia, if present
+    var getUserMedia = navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+
+    // Some browsers just don't implement it - return a rejected promise with an error
+    // to keep a consistent interface
+    if (!getUserMedia) {
+      return Promise.reject(new Error('getUserMedia is not implemented in this browser'));
+    }
+
+    // Otherwise, wrap the call to the old navigator.getUserMedia with a Promise
+    return new Promise(function(resolve, reject) {
+      getUserMedia.call(navigator, constraints, resolve, reject);
+    });
+  }
+}
+
+
+///RELEVANT:
+navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+
+.then(function(stream) {
+  start_microphone(stream);
+})
+
+.catch(function(err) {
+  console.log(err.name + ": " + err.message);
+});
+
+
+let reverb = createReverb();
+async function createReverb() {
+    let convolver = audioContext.createConvolver();
+
+    // load impulse response from file
+    let response     = await fetch("impulse-response.wav");
+    let arraybuffer  = await response.arrayBuffer();
+    convolver.buffer = await audioContext.decodeAudioData(arraybuffer);
+
+    return convolver;
+}
+
+
+
+function start_microphone(stream){
+  gain_node = audioContext.createGain();
+  microphone_stream = audioContext.createMediaStreamSource(stream);
+
+  // microphone_stream -> reverb -> gain -> destination
+  microphone_stream.connect(reverb);
+  reverb.connect(gain_node);
+  gain_node.connect(audioContext.destination);
+
+
+
+  // --- enable volume and reverb control for output speakers
+  document.getElementById('reverb').addEventListener('change', function() {
+
+      var curr_reverb = this.value;
+      reverb_node.convolve.value = curr_reverb;
+
+      console.log("curr_reverb ", curr_reverb);
+  });
+  document.getElementById('volume').addEventListener('change', function() {
+
+      var curr_volume = this.value;
+      gain_node.gain.value = curr_volume;
+
+      console.log("curr_volume ", curr_volume);
+  });
+}
+
+</script>
 </html>
