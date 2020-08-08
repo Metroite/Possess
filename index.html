@@ -21,11 +21,11 @@
     <input id="preset" type="range" min="-1" max="9" step="1" value="4"/>
     <pre></pre>
   </body>
-  <script>
+  <script id="my_script">
 
 
 const pre = document.querySelector('pre');
-const myScript = document.querySelector('script');
+const myScript = document.querySelector('#my_script');
 pre.innerHTML = myScript.innerHTML;
 
 let microphone_stream = null,
