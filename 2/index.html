@@ -39,7 +39,7 @@ body, html {height: 100%}
   let ws = {};
   document.getElementById("username").addEventListener("change", function() {
     let name = this.value;
-    ws = new WebSocket("ws://localhost:8080/?name=" + name);
+    ws = new WebSocket("ws://192.168.2.115:8080/?name=" + name);
     this.readOnly = true;
 
     // Create Chat box
